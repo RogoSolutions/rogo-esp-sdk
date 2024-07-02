@@ -6,7 +6,6 @@
   - esp32c2
   - esp32c6
   - esp32h2
-  - esp32p4
 
 .target_test: &target_test
   - example_test
@@ -26,7 +25,6 @@
     - downloadable-tools
   included_in:
     - build:target_test
-    - build:check
 
 # -------------------
 # Specific Build Jobs
@@ -41,6 +39,14 @@
     - build_system
     - downloadable-tools
 
+"build:windows":
+  labels:
+    - build
+    - windows
+  patterns:
+    - build_system
+    - windows
+
 "build:macos":
   labels:
     - build
@@ -48,23 +54,8 @@
     - macos_test  # for backward compatibility
   patterns:
     - build_system
-    - build_macos
+    - macos
     - downloadable-tools
-
-# ---------------------------
-# Add patterns to build rules
-# ---------------------------
-"patterns:template-app":
-  patterns:
-    - build_template-app
-  included_in:
-    - build:target_test
-
-"patterns:build-check":
-  patterns:
-    - build_check
-  included_in:
-    - build:check
 
 # ---------------
 # Build Test Jobs
@@ -140,7 +131,8 @@ build:integration_test:
   matrix:
     - *target_test
     - *all_targets
-    - - wifi      # pytest*wifi*
+    - - bt        # example_test_005
+      - wifi      # pytest*wifi*
       - ethernet  # pytest*ethernet*
       - sdio      # pytest*sdio*
       - usb       # USB Device & Host tests
@@ -148,7 +140,7 @@ build:integration_test:
       - i154
       - flash_multi
       - ecdsa
-      - nvs_encr_hmac
+      - ccs811    # pytest*ccs811*
   patterns:
     - "{0}-{1}-{2}"
     - "{0}-{2}"

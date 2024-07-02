@@ -16,7 +16,6 @@ check_pre_commit_master_release:
     - .check_pre_commit_template
     - .rules:protected
   script:
-    - fetch_submodules
     - git diff-tree --no-commit-id --name-only -r $PIPELINE_COMMIT_SHA | xargs pre-commit run --files
 
 check_pre_commit_MR:
@@ -24,33 +23,23 @@ check_pre_commit_MR:
     - .check_pre_commit_template
     - .rules:dev
   script:
-    - fetch_submodules
     - python ${CI_PROJECT_DIR}/tools/ci/ci_get_mr_info.py files ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME} | xargs pre-commit run --files
 
 check_MR_style_dangerjs:
   extends:
     - .pre_check_template
-  image: node:18.15.0-alpine3.16
+  image: node:14.18.0-alpine3.14
   variables:
     DANGER_GITLAB_API_TOKEN: ${ESPCI_TOKEN}
     DANGER_GITLAB_HOST: ${GITLAB_HTTP_SERVER}
     DANGER_GITLAB_API_BASE_URL: ${GITLAB_HTTP_SERVER}/api/v4
     DANGER_JIRA_USER: ${DANGER_JIRA_USER}
     DANGER_JIRA_PASSWORD: ${DANGER_JIRA_PASSWORD}
-  cache:
-    # pull only for most of the use cases since it's cache dir.
-    # Only set "push" policy for "upload_cache" stage jobs
-    key:
-      files:
-        - .gitlab/dangerjs/package-lock.json
-    paths:
-      - .gitlab/dangerjs/node_modules/
-    policy: pull
   before_script:
-    - cd .gitlab/dangerjs
-    - npm install --no-progress --no-update-notifier  # Install danger dependencies
+    - npm install -g danger@11.2.3 --silent --no-progress > /dev/null
+    - npm install axios@1.3.3 --silent --no-progress > /dev/null
   script:
-    - npx danger ci --failOnErrors -v
+    - danger ci --dangerfile=".gitlab/dangerjs/dangerfile.js" --failOnErrors -v
   rules:
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
 
@@ -64,12 +53,11 @@ check_version:
     - export IDF_PATH=$PWD
     - tools/ci/check_idf_version.sh
 
-check_api_usage:
+check_rom_api_header:
   extends: .pre_check_template
   script:
     - tools/ci/check_examples_rom_header.sh
     - tools/ci/check_api_violation.sh
-    - tools/ci/check_examples_extra_component_dirs.sh
 
 test_check_kconfigs:
   extends: .pre_check_template
@@ -87,9 +75,7 @@ test_check_kconfigs:
     - python ${IDF_PATH}/tools/ci/test_check_kconfigs.py
 
 check_blobs:
-  extends:
-    - .pre_check_template
-    - .rules:build:check
+  extends: .pre_check_template
   variables:
     SUBMODULES_TO_FETCH: "components/esp_wifi/lib;components/esp_phy/lib;components/esp_coex/lib"
   script:
@@ -114,7 +100,7 @@ check_blobs:
 check_public_headers:
   extends:
     - .pre_check_template
-    - .rules:build:check
+    - .rules:build
   script:
     - IDF_TARGET=esp32 python tools/ci/check_public_headers.py --jobs 4 --prefix xtensa-esp32-elf-
     - IDF_TARGET=esp32s2 python tools/ci/check_public_headers.py --jobs 4 --prefix xtensa-esp32s2-elf-
@@ -123,12 +109,11 @@ check_public_headers:
     - IDF_TARGET=esp32c2 python tools/ci/check_public_headers.py --jobs 4 --prefix riscv32-esp-elf-
     - IDF_TARGET=esp32c6 python tools/ci/check_public_headers.py --jobs 4 --prefix riscv32-esp-elf-
     - IDF_TARGET=esp32h2 python tools/ci/check_public_headers.py --jobs 4 --prefix riscv32-esp-elf-
-    - IDF_TARGET=esp32p4 python tools/ci/check_public_headers.py --jobs 4 --prefix riscv32-esp-elf-
 
 check_chip_support_components:
   extends:
     - .pre_check_template
-    - .rules:build:check
+    - .rules:build
   artifacts:
     when: on_failure
     paths:
@@ -143,7 +128,7 @@ check_chip_support_components:
 check_esp_err_to_name:
   extends:
     - .pre_check_template
-    - .rules:build:check
+    - .rules:build
   artifacts:
     when: on_failure
     paths:
@@ -189,27 +174,6 @@ check_configure_ci_environment_parsing:
   extends:
     - .pre_check_template
     - .before_script_build_jobs
-    - .rules:build
   script:
     - cd tools/ci
     - python -m unittest ci_build_apps.py
-
-mr_variables:
-  extends:
-    - .pre_check_template
-    - .rules:mr
-    - .before_script_minimal
-  tags:
-    - build
-  script:
-    - echo "MR_MODIFIED_FILES=$(python tools/ci/ci_get_mr_info.py files ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME} | xargs)" >> mr.env
-    - echo "MR_MODIFIED_COMPONENTS=$(python tools/ci/ci_get_mr_info.py components ${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME} | xargs)" >> mr.env
-    - >
-      if echo "$CI_MERGE_REQUEST_LABELS" | egrep "(^|,)BUILD_AND_TEST_ALL_APPS(,|$)"; then
-        echo "BUILD_AND_TEST_ALL_APPS=1" >> mr.env
-      fi
-    - cat mr.env
-  artifacts:
-    reports:
-      dotenv: mr.env
-    expire_in: 4 days

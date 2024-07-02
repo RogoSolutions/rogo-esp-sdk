@@ -76,17 +76,14 @@ check_docs_lang_sync:
   stage: build_doc
   tags:
     - build_docs
-  needs:
-    - job: fast_template_app
-      artifacts: false
-      optional: true
+  dependencies: []
   script:
     - cd docs
     - build-docs -t $DOCTGT -bs $DOC_BUILDERS -l $DOCLANG build
   parallel:
     matrix:
       - DOCLANG: ["en", "zh_CN"]
-        DOCTGT: ["esp32", "esp32s2", "esp32s3", "esp32c3", "esp32c2", "esp32c6", "esp32h2", "esp32p4"]
+        DOCTGT: ["esp32", "esp32s2", "esp32s3", "esp32c3", "esp32c2", "esp32c6", "esp32h2"]
 
 check_docs_gh_links:
   image: $ESP_IDF_DOC_ENV_IMAGE
@@ -129,7 +126,7 @@ build_docs_html_partial:
       - DOCLANG: "en"
         DOCTGT: "esp32"
       - DOCLANG: "zh_CN"
-        DOCTGT: "esp32p4"
+        DOCTGT: "esp32c6"
 
 build_docs_pdf:
   extends:
