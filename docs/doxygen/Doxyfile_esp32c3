@@ -1,2 +1,0 @@
-INPUT += \
-        $(PROJECT_PATH)/components/bt/include/$(IDF_TARGET)/include/esp_bt.h \
